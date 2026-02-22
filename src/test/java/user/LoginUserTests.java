@@ -120,4 +120,4 @@ public class LoginUserTests extends BaseTest {
             }
         }
     }
-}
+}  // test1

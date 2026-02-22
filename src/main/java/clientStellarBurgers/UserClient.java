@@ -12,6 +12,14 @@ import static io.restassured.RestAssured.given;
 
 public class UserClient {
 
+
+    public String getAccessTokenFromResponse(Response response) {
+        if (response.statusCode() == 200) {
+            return response.path("accessToken");
+        }
+        return null;
+    }
+
     @Step("Создание нового пользователя.")
     public Response createUser(User user) {
         return given()

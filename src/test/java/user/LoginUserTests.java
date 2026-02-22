@@ -7,6 +7,7 @@ import io.qameta.allure.Epic;
 import io.qameta.allure.Feature;
 import io.qameta.allure.Story;
 import io.qameta.allure.junit5.AllureJunit5;
+import io.restassured.response.Response;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,11 +18,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class LoginUserTests extends BaseTest {
 
     private User user;
+    private String accessToken;
 
     @BeforeEach
     public void setUp() {
         initClients();
-        user = new User("Izym", "izymizymizym@yandex.ru", "564Ybsmk937");
+        //перед каждым тестом
+        user = new User("Izym", "izym" + System.currentTimeMillis() + "@yandex.ru", "564Ybsmk937");
+        userClient.createUser(user);
     }
 
     @Test
@@ -29,8 +33,6 @@ public class LoginUserTests extends BaseTest {
     @Description("Авторизация пользователя под существующим логином")
     @Story("Авторизация")
     public void authorizationTest() {
-        userClient.createUser(user);
-
         var response = userClient.loginUser(user);
 
         response.then().log().all()
@@ -38,8 +40,8 @@ public class LoginUserTests extends BaseTest {
                 .and().body("success", Matchers.is(true))
                 .and().body("accessToken", Matchers.notNullValue())
                 .and().body("refreshToken", Matchers.notNullValue())
-                .and().body("user.email", Matchers.notNullValue())
-                .and().body("user.name", Matchers.notNullValue());
+                .and().body("user.email", Matchers.is(user.getEmail()))
+                .and().body("user.name", Matchers.is(user.getName()));
     }
 
     @Test
@@ -47,8 +49,6 @@ public class LoginUserTests extends BaseTest {
     @Description("Авторизация пользователя c некорректным логином")
     @Story("Негативные сценарии")
     public void authorizationIncorrectLoginTest() {
-        userClient.createUser(user);
-
         User loginUser = new User(user.getEmail(), user.getPassword());
         loginUser.setEmail("Hdnasjdhbajhnwjdnakljndj2783o127" + user.getEmail());
 
@@ -61,8 +61,6 @@ public class LoginUserTests extends BaseTest {
     @Description("Авторизация пользователя c некорректным паролем")
     @Story("Негативные сценарии")
     public void authorizationIncorrectPasswordTest() {
-        userClient.createUser(user);
-
         User loginUser = new User(user.getEmail(), user.getPassword());
         loginUser.setPassword("6482HSVbsj" + user.getPassword());
 
@@ -75,8 +73,6 @@ public class LoginUserTests extends BaseTest {
     @Description("Авторизация пользователя без логина")
     @Story("Негативные сценарии")
     public void authorizationWithoutLoginTest() {
-        userClient.createUser(user);
-
         User loginUser = new User();
         loginUser.setPassword(user.getPassword());
 
@@ -89,8 +85,6 @@ public class LoginUserTests extends BaseTest {
     @Description("Авторизация пользователя без пароля")
     @Story("Негативные сценарии")
     public void authorizationWithoutPasswordTest() {
-        userClient.createUser(user);
-
         User loginUser = new User();
         loginUser.setEmail(user.getEmail());
 
@@ -103,17 +97,27 @@ public class LoginUserTests extends BaseTest {
     @Description("Авторизация пользователя без логина и пароля")
     @Story("Негативные сценарии")
     public void authorizationWithoutLoginAndPasswordTest() {
-        userClient.createUser(user);
-
         var response = userClient.loginUser(new User());
         userClient.checkFailedLoginResponse(response);
     }
 
     @AfterEach
     public void tearDown() {
-        String accessToken = userClient.getAccessToken(user);
-        if (accessToken != null) {
-            userClient.deleteUser(accessToken);
+
+        if (user != null && user.getEmail() != null) {
+            try {
+
+                Response loginResponse = userClient.loginUser(user);
+                if (loginResponse.statusCode() == 200) {
+                    String token = userClient.getAccessTokenFromResponse(loginResponse);
+                    if (token != null) {
+                        userClient.deleteUser(token);
+                    }
+                }
+            } catch (Exception e) {
+
+                System.err.println("Failed to delete user in tearDown: " + e.getMessage());
+            }
         }
     }
 }
